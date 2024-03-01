@@ -1,0 +1,9 @@
+websockets
+uuid
+termcolor
+colorama
+libmariadb-dev 
+libmariadb-dev-compat
+mariadb
+passlib
+flask
