@@ -32,7 +32,9 @@ def nuevo_usuario(conn, correo_electronico, contrasena):
         cur = conn.cursor()
         cur.execute('USE LinuxLiveMessenger')
         cur.execute("SELECT correo_electronico FROM Usuarios WHERE correo_electronico = %s", (correo_electronico,))
-        if cur.fetchone() is not None:
+        salida = cur.fetchone()
+
+        if salida != None:
             respuesta_mariadb(error="El correo electrónico ya está registrado.", accion="Nuevo usuario 1")
             return False
 
