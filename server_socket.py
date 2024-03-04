@@ -7,34 +7,18 @@ from websockets.server import serve
 from pprint import pprint
 from termcolor import colored
 from colorama import init, Fore, Back, Style
-from querys import nuevo_usuario, login, actualizar_lema, actualizar_nickname, agregar_contacto, obtener_chat_usuarios, conectar_mariadb
-from querys import obtener_contactos_usuario, obtener_estados_contactos, obtener_lema_usuario, enviar_mensaje, agregar_estado
-
+import querys
 
 PORT = 8765 # puerto del websocket
 HOST = "localhost"
 
 
-async def nuevo_usuario(websocket, data):
-    try:
-        mensaje = {'tipo':'nuevo_usuario'}
-    except websockets.exceptions.ConnectionClosedOK:
-        print("La conexión se cerró antes de enviar el mensaje.")
-
 
 async def obtener_contactos(websocket, data):
+    conn = querys.conectar_mariadb()
+    contactos = querys.obtener_contactos_usuario(conn, data["email"])
     try:
-        mensaje = {'tipo': 'obtener_contactos', 'data': "CONTACTOS"}
-        await websocket.send(json.dumps(mensaje))
-        await texto_respuesta(mensaje)
-
-    except websockets.exceptions.ConnectionClosedOK:
-        print("La conexión se cerró antes de enviar el mensaje.")
-
-
-async def obtener_contactos(websocket, data):
-    try:
-        mensaje = {'tipo': 'obtener_contactos', 'data': salas[sala_id]}
+        mensaje = {'tipo': 'obtener_contactos', 'data': contactos}
         await websocket.send(json.dumps(mensaje))
         await texto_respuesta(mensaje)
     except websockets.exceptions.ConnectionClosedOK:
@@ -51,9 +35,9 @@ async def handler(websocket):
 
         if solicitud['accion'] == 'obtener_contactos':
             await obtener_contactos(websocket, solicitud['data'])
-        
+
         elif solicitud['accion'] == 'obtener_estados':
-            await obtener
+            pass
             
 ##################################################################################
      
@@ -96,3 +80,4 @@ try:
     asyncio.run(main())
 except KeyboardInterrupt:
         print(Fore.RED + Style.BRIGHT + "[Servidor detenido]" + Style.RESET_ALL)
+
