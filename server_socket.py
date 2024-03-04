@@ -14,9 +14,14 @@ HOST = "localhost"
 
 
 
-async def obtener_contactos(websocket, data):
+async def obtener_contactos(websocket, email):
     conn = querys.conectar_mariadb()
-    contactos = querys.obtener_contactos_usuario(conn, data["email"])
+    query_data = querys.obtener_contactos_usuario(conn, email)
+    contactos = []  # lista de (email, nick)
+
+    for contacto in query_data:
+        contactos.append((contacto[0], contacto[1]))
+
     try:
         mensaje = {'tipo': 'obtener_contactos', 'data': contactos}
         await websocket.send(json.dumps(mensaje))
@@ -24,6 +29,17 @@ async def obtener_contactos(websocket, data):
     except websockets.exceptions.ConnectionClosedOK:
         print("La conexión se cerró antes de enviar el mensaje.")
 
+
+async def obtener_nickname_usuario(websocket, email):
+    conn = querys.conectar_mariadb()
+    nickname = querys.obtener_nickname_usuario(conn, email)
+
+    try:
+        mensaje = {'tipo': 'obtener_nickname_usuario', 'data': nickname}
+        await websocket.send(json.dumps(mensaje))
+        await texto_respuesta(mensaje)
+    except websockets.exceptions.ConnectionClosedOK:
+        print("La conexión se cerró antes de enviar el mensaje.")
 
 ##################################################################################
 
@@ -34,7 +50,10 @@ async def handler(websocket):
         await texto_solicitud(solicitud)
 
         if solicitud['accion'] == 'obtener_contactos':
-            await obtener_contactos(websocket, solicitud['data'])
+            await obtener_contactos(websocket, solicitud['data']['email'])
+
+        elif solicitud['accion'] == 'obtener_nickname':
+            await obtener_nickname_usuario(websocket, solicitud['data']['email'])
 
         elif solicitud['accion'] == 'obtener_estados':
             pass
@@ -43,12 +62,12 @@ async def handler(websocket):
      
 async def texto_solicitud(solicitud):
     print("-"*64)
-    print(Fore.BLUE + Style.BRIGHT+ "[Solicitud recibida]:\t" + Fore.LIGHTMAGENTA_EX + solicitud["accion"] + Fore.RESET)
+    print(Fore.BLUE + Style.BRIGHT+ "[Solicitud recibida]:\t" + Fore.LIGHTMAGENTA_EX + solicitud["accion"] + Fore.RESET + Style.RESET_ALL)
     pprint(solicitud)
 
 async def texto_respuesta(respuesta):
     print("-"*64)
-    print(Fore.LIGHTGREEN_EX + Style.BRIGHT+ "[Respuesta enviada]:\t" + Fore.LIGHTMAGENTA_EX + respuesta["tipo"] + Fore.RESET)
+    print(Fore.LIGHTGREEN_EX + Style.BRIGHT+ "[Respuesta enviada]:\t" + Fore.LIGHTMAGENTA_EX + respuesta["tipo"] + Fore.RESET + Style.RESET_ALL)
     pprint(respuesta)
 
 
@@ -62,6 +81,8 @@ def generar_id():
     caracteres = string.ascii_uppercase + string.digits
     id = ''.join(random.choice(caracteres) for _ in range(4))
     return id
+
+
 
 
 async def main():

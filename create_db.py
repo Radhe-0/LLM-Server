@@ -134,6 +134,7 @@ def poblar_tablas(conn): # Insercion de datos de prueba
     nuevo_usuario(conn, "eradhea@gmail.com", "password")
     actualizar_nickname(conn, "eradhea@gmail.com", "Radhe")
 
+    agregar_contacto(conn, "juan@email.com", "eradhea@gmail.com")
     agregar_contacto(conn, "maria@email.com", "juan@email.com")
     agregar_contacto(conn, "juan@email.com", "maria@email.com")
     agregar_contacto(conn, "maria@email.com", "eradhea@gmail.com")

@@ -8,7 +8,7 @@ import passlib.hash
 
 def respuesta_mariadb(mensaje='', error='', accion=''):
     if error == '':
-        print(Fore.LIGHTGREEN_EX + Style.BRIGHT + f"Mariadb ({accion}): " + Style.RESET_ALL + Fore.RESET + mensaje)
+        print(Fore.CYAN + Style.BRIGHT + f"Mariadb ({accion}): " + Style.RESET_ALL + Fore.RESET + mensaje)
     else:
         print(Fore.LIGHTRED_EX + Style.BRIGHT + f"Mariadb error ({accion}): " + Style.RESET_ALL + Fore.RESET + str(error))
 
@@ -74,6 +74,29 @@ def login(conn, correo_electronico, contrasena):
     except mariadb.Error as e:
         respuesta_mariadb(error=e, accion="Login 3")
         return False
+
+
+def obtener_nickname_usuario(conn, email):
+    try:
+        cur = conn.cursor()
+        cur.execute("USE LinuxLiveMessenger")
+        cur.execute("""
+                  SELECT nickname
+                  FROM Usuarios
+                  WHERE correo_electronico = %s
+                    """, (email,))
+        resultado = cur.fetchone()
+        cur.close()
+        if resultado:
+            respuesta_mariadb("Contacto obtenido", accion="Obtener nickname 1")
+            return resultado[0]
+        else:
+            respuesta_mariadb(error="No hubo resultado", accion="Obtener nickname 2")
+            return None
+    except mariadb.Error as e:
+        respuesta_mariadb(error=e, accion="Obtener nickname 3")
+        return None
+
 
 
 def actualizar_nickname(conn, correo_electronico, nickname):
