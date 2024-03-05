@@ -35,11 +35,26 @@ async def obtener_nickname_usuario(websocket, email):
     nickname = querys.obtener_nickname_usuario(conn, email)
 
     try:
-        mensaje = {'tipo': 'obtener_nickname_usuario', 'data': nickname}
+        mensaje = {'tipo': 'obtener_nickname', 'data': nickname}
         await websocket.send(json.dumps(mensaje))
         await texto_respuesta(mensaje)
     except websockets.exceptions.ConnectionClosedOK:
         print("La conexión se cerró antes de enviar el mensaje.")
+
+
+async def obtener_estados_contactos(websocket, email):
+    conn = querys.conectar_mariadb()
+    estados_data = querys.obtener_estados_contactos(conn, email)
+    print(f"\n\nEstados data: {estados_data}") ###################
+
+    try:
+        mensaje = {'tipo': 'obtener_nickname', 'data': estados_data}
+        await websocket.send(json.dumps(mensaje))
+        await texto_respuesta(mensaje)
+    except websockets.exceptions.ConnectionClosedOK:
+        print("La conexión se cerró antes de enviar el mensaje.")
+
+
 
 ##################################################################################
 
@@ -56,7 +71,7 @@ async def handler(websocket):
             await obtener_nickname_usuario(websocket, solicitud['data']['email'])
 
         elif solicitud['accion'] == 'obtener_estados':
-            pass
+            await obtener_estados_contactos(websocket, solicitud['data']['email'])
             
 ##################################################################################
      

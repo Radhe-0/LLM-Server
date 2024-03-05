@@ -88,7 +88,7 @@ def obtener_nickname_usuario(conn, email):
         resultado = cur.fetchone()
         cur.close()
         if resultado:
-            respuesta_mariadb("Contacto obtenido", accion="Obtener nickname 1")
+            respuesta_mariadb("Nickname obtenido", accion="Obtener nickname 1")
             return resultado[0]
         else:
             respuesta_mariadb(error="No hubo resultado", accion="Obtener nickname 2")
