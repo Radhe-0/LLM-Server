@@ -141,7 +141,7 @@ def poblar_tablas(conn): # Insercion de datos de prueba
 
     agregar_estado(conn, "eradhea@gmail.com", "Qué les parece esta APP?")
     agregar_estado(conn, "maria@email.com", "Quien para hablar!? :D")
-    agregar_estado(conn, "juan@email.com", "Mi gato me dijo algo muy inquietante hoy...")
+    agregar_estado(conn, "juan@email.com", "Mi gato me dijo algo muy inquietante hoy..." )
 
     enviar_mensaje(conn, "maria@email.com", "juan@email.com", "Hola Juan")
     enviar_mensaje(conn, "maria@email.com", "juan@email.com", "Cómo estás?")

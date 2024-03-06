@@ -221,6 +221,34 @@ def agregar_estado(conn, correo_electronico, texto_estado):
         return False
 
 
+def actualizar_foto_perfil(conn, correo_electronico, foto_perfil):
+    try:
+        cur = conn.cursor()
+        cur.execute("USE LinuxLiveMessenger")
+
+        # Validar que el usuario exista
+        cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico,))
+        if cur.fetchone() is None:
+            print("[Error: El usuario no está registrado.]")
+            return False
+
+        cur.execute("""
+          UPDATE Usuarios
+          SET foto_perfil = %s
+          WHERE correo_electronico = %s
+        """, (foto_perfil, correo_electronico))
+
+        conn.commit()
+        cur.close()
+
+        print("[Foto de perfil actualizada correctamente.]")
+        return True
+
+    except mariadb.Error as e:
+        print(f"[Error al actualizar la foto de perfil: {e}]")
+        return False
+
+
 def actualizar_lema(conn, correo_electronico, lema):
     try:
         cur = conn.cursor()
@@ -283,8 +311,29 @@ def obtener_estados_contactos(conn, correo_electronico):
             WHERE C.id_usuario = (SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s);
         """, (correo_electronico,))
         resultados = cur.fetchall()
+
+        # Convertir fechas de datetime a diccionarios
+        resultados_formateados = []
+        for resultado in resultados:
+            fecha_hora = resultado[3]
+            fecha_dict = {
+                'year': fecha_hora.year,
+                'month': fecha_hora.month,
+                'day': fecha_hora.day,
+                'hour': fecha_hora.hour,
+                'minute': fecha_hora.minute,
+                'second': fecha_hora.second
+            }
+            resultado_dict = {
+                'email': resultado[0],
+                'nickname': resultado[1],
+                'texto_estado': resultado[2],
+                'fecha_hora': fecha_dict
+            }
+            resultados_formateados.append(resultado_dict)
+        
         cur.close()
-        return resultados
+        return resultados_formateados
     
     except mariadb.Error as e:
         print(Fore.LIGHTRED_EX + f"[Error al obtener estados de los contactos: {e}]")

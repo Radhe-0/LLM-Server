@@ -8,6 +8,7 @@ from pprint import pprint
 from termcolor import colored
 from colorama import init, Fore, Back, Style
 import querys
+import base64
 
 PORT = 8765 # puerto del websocket
 HOST = "localhost"
@@ -45,17 +46,21 @@ async def obtener_nickname_usuario(websocket, email):
 async def obtener_estados_contactos(websocket, email):
     conn = querys.conectar_mariadb()
     estados_data = querys.obtener_estados_contactos(conn, email)
-    print(f"\n\nEstados data: {estados_data}") ###################
 
     try:
-        mensaje = {'tipo': 'obtener_nickname', 'data': estados_data}
+        mensaje = {'tipo': 'obtener_estados', 'data': estados_data}
         await websocket.send(json.dumps(mensaje))
         await texto_respuesta(mensaje)
     except websockets.exceptions.ConnectionClosedOK:
         print("La conexión se cerró antes de enviar el mensaje.")
 
 
+async def recibir_imagen(websocket, imagenb64):
+    image_data = base64.b64decode(imagenb64)
+    with open("EUREKAAAAAAAAAAAA.jpg", "wb") as file:
+        file.write(image_data)
 
+    print("Imagen recibida y guardada.")
 ##################################################################################
 
 async def handler(websocket):
@@ -72,6 +77,9 @@ async def handler(websocket):
 
         elif solicitud['accion'] == 'obtener_estados':
             await obtener_estados_contactos(websocket, solicitud['data']['email'])
+
+        elif solicitud['accion'] == 'actualizar_imagen':
+            await recibir_imagen(websocket, solicitud['data']['imagenb64']) 
             
 ##################################################################################
      
@@ -101,7 +109,7 @@ def generar_id():
 
 
 async def main():
-    async with serve(handler, HOST, PORT):
+    async with serve(handler, HOST, PORT,max_size=10485760):
 
         print(Fore.CYAN + Style.BRIGHT + "╔══════════════════════════════════════════════════════════╗")
         print(Fore.CYAN + "║\t\t     " + Fore.LIGHTRED_EX +  "[Servidor iniciado]" + Fore.CYAN + "\t\t   ║")
