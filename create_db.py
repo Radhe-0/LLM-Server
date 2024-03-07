@@ -50,7 +50,7 @@ def crear_tablas(conn):
                 contrasena VARCHAR(255),
                 nickname VARCHAR(255),
                 lema VARCHAR(255),
-                foto_perfil BLOB,
+                foto_perfil MEDIUMTEXT,
                 fecha_creacion TIMESTAMP
             );
         """)

@@ -4,6 +4,7 @@ import datetime
 from termcolor import colored
 from colorama import init, Fore, Back, Style
 import passlib.hash
+import base64
 
 
 def respuesta_mariadb(mensaje='', error='', accion=''):
@@ -44,6 +45,7 @@ def nuevo_usuario(conn, correo_electronico, contrasena):
         cur.close()
         
         respuesta_mariadb("Usuario registrado correctamente.", accion="Nuevo usuario 2")
+        actualizar_nickname(conn, correo_electronico, "Nuevo usuario")
         return True
         
     except mariadb.Error as e:
@@ -102,20 +104,16 @@ def obtener_nickname_usuario(conn, email):
 def actualizar_nickname(conn, correo_electronico, nickname):
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico,))
-        if cur.fetchone() is None:
-            print(f"[Error: El correo electrónico no está registrado.]")
-            return False
         cur.execute("UPDATE Usuarios SET nickname = %s WHERE correo_electronico = %s", 
                     (nickname, correo_electronico))
         conn.commit()
         cur.close()
         
-        print("[Nickname actualizado correctamente.]")
+        respuesta_mariadb("Nickname actualizado", accion="actualizar nickname")
         return True
         
     except mariadb.Error as e:
-        print(f"Error al actualizar el nickname: {e}")
+        respuesta_mariadb(error=e, accion="actualizar nickname")
         return False
 
 
@@ -134,7 +132,35 @@ def obtener_contactos_usuario(conn, correo_electronico):
         return resultados
     
     except mariadb.Error as e:
-        print(Fore.LIGHTRED_EX + f"[Error al obtener contactos del usuario: {e}]")
+        respuesta_mariadb(error=e, accion="obtener contactos usuario")
+        return None
+
+
+def obtener_fotos_contactos(conn, correo_electronico):
+    try:
+        cur = conn.cursor()
+        cur.execute("USE LinuxLiveMessenger")
+        cur.execute("""
+            SELECT U.correo_electronico, U.foto_perfil
+            FROM Contactos C
+            INNER JOIN Usuarios U ON U.correo_electronico = C.correo_electronico_contacto
+            WHERE C.id_usuario = (SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s);
+        """, (correo_electronico,))
+        resultados = cur.fetchall()
+        cur.close()
+        respuesta_mariadb("Fotos contactos obtenidas", accion="obtener fotos contactos")
+        
+        # Codificar las fotos de perfil en base64
+        fotos_contactos = []
+        for contacto in resultados:
+            correo, foto = contacto
+            foto_base64 = base64.b64encode(foto).decode('utf-8') if foto else None
+            fotos_contactos.append((correo, foto_base64))
+        
+        return fotos_contactos
+
+    except mariadb.Error as e:
+        respuesta_mariadb(error=e, accion="obtener fotos contactos")
         return None
 
 
@@ -156,25 +182,14 @@ def obtener_lema_usuario(conn, correo_electronico):
             return resultado[0]
 
     except mariadb.Error as e:
-        print(Fore.LIGHTRED_EX + f"[Error al obtener el lema del usuario: {e}]")
+        respuesta_mariadb(error=e, accion="obtener lema usuario")
         return None
 
 
 def agregar_contacto(conn, correo_electronico_usuario, correo_electronico_contacto):
     try:
         cur = conn.cursor()
-        
-        # Verificar si ambos correos electrónicos existen
-        cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico_usuario,))
-        if cur.fetchone() is None:
-            print(Fore.LIGHTRED_EX + f"[Error: El correo electrónico del usuario no está registrado.]")
-            return False
-        
-        cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico_contacto,))
-        if cur.fetchone() is None:
-            print(f"[Error: El correo electrónico del contacto no está registrado.]")
-            return False
-        
+        cur.execute("USE LinuxLiveMessenger")
         # Verificar si ya son contactos
         cur.execute("""
             SELECT * FROM Contactos
@@ -182,7 +197,7 @@ def agregar_contacto(conn, correo_electronico_usuario, correo_electronico_contac
             AND correo_electronico_contacto = %s
         """, (correo_electronico_usuario, correo_electronico_contacto))
         if cur.fetchone() is not None:
-            print("[Error: Los usuarios ya son contactos.]")
+            respuesta_mariadb(error="Los usuarios ya son contactos", accion="agregar contacto")
             return False
         
         # Insertar el nuevo contacto en la tabla Contactos
@@ -194,11 +209,11 @@ def agregar_contacto(conn, correo_electronico_usuario, correo_electronico_contac
         conn.commit()
         cur.close()
         
-        print("[Contacto agregado correctamente.]")
+        respuesta_mariadb("Contacto agregado correctamente", accion="agregar contacto")
         return True
         
     except mariadb.Error as e:
-        print(f"Error al agregar el contacto: {e}")
+        respuesta_mariadb(error=e, accion="agregar contacto")
         return False
 
 
@@ -213,61 +228,68 @@ def agregar_estado(conn, correo_electronico, texto_estado):
         conn.commit()
         cur.close()
         
-        print("[Estado actualizado correctamente.]")
+        respuesta_mariadb("Estado agregado correctamente", accion="agregar estado")
         return True
         
     except mariadb.Error as e:
-        print(f"Error al actualizar el estado: {e}")
+        respuesta_mariadb(error=e, accion="agregar estado")
         return False
 
 
-def actualizar_foto_perfil(conn, correo_electronico, foto_perfil):
+def actualizar_foto(conn, correo_electronico, imagenb64):
     try:
         cur = conn.cursor()
         cur.execute("USE LinuxLiveMessenger")
-
-        # Validar que el usuario exista
-        cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico,))
-        if cur.fetchone() is None:
-            print("[Error: El usuario no está registrado.]")
-            return False
-
+        
         cur.execute("""
-          UPDATE Usuarios
-          SET foto_perfil = %s
-          WHERE correo_electronico = %s
-        """, (foto_perfil, correo_electronico))
-
+            UPDATE Usuarios
+            SET foto_perfil = %s
+            WHERE correo_electronico = %s;
+        """, (imagenb64, correo_electronico))
         conn.commit()
         cur.close()
-
-        print("[Foto de perfil actualizada correctamente.]")
+        respuesta_mariadb("Foto actualizada exitosamente", accion="actualizar foto")
         return True
 
     except mariadb.Error as e:
-        print(f"[Error al actualizar la foto de perfil: {e}]")
+        respuesta_mariadb(error=e, accion="actualizar foto")
         return False
+
+
+def obtener_foto_usuario(conn, correo_electronico):
+    try:
+        cur = conn.cursor()
+        cur.execute("USE LinuxLiveMessenger")
+        cur.execute("""
+            SELECT foto_perfil
+            FROM Usuarios
+            WHERE correo_electronico = %s;
+        """, (correo_electronico,))
+        resultado = cur.fetchone()
+        cur.close()
+        respuesta_mariadb("Foto de usuario obtenida", accion="obtener foto usuario")
+        return resultado[0]
+
+
+    except mariadb.Error as e:
+        respuesta_mariadb(error=e, accion="obtener foto usuario")
+        return None
 
 
 def actualizar_lema(conn, correo_electronico, lema):
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico,))
-        if cur.fetchone() is None:
-            print(f"[Error: El correo electrónico no está registrado.]")
-            return False
-        
         cur.execute("UPDATE Usuarios SET lema = %s WHERE correo_electronico = %s", 
                     (lema, correo_electronico))
         
         conn.commit()
         cur.close()
         
-        print("[Lema actualizado correctamente.]")
+        respuesta_mariadb("Lema actualizado correctamente", accion="actualizar lema")
         return True
         
     except mariadb.Error as e:
-        print(f"Error al actualizar el lema: {e}")
+        respuesta_mariadb(error=e, accion="actualizar lema")
         return False
 
 
@@ -278,13 +300,13 @@ def enviar_mensaje(conn, correo_electronico_usuario_envia, correo_electronico_us
         cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico_usuario_envia,))
         id_usuario_envia = cur.fetchone()
         if id_usuario_envia is None:
-            print("El correo electrónico del remitente no existe.")
+            respuesta_mariadb(error="El correo electronico del remitente no existe", accion='enviar mensaje')
             return
         
         cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico_usuario_recibe,))
         id_usuario_recibe = cur.fetchone()
         if id_usuario_recibe is None:
-            print("El correo electrónico del destinatario no existe.")
+            respuesta_mariadb(error="El correo electrónico del destinatario no existe.", accion='enviar mensaje')
             return
         
         cur.execute("INSERT INTO Mensajes (id_usuario_envia, id_usuario_recibe, texto_mensaje, fecha_hora) VALUES (%s, %s, %s, %s)", 
@@ -293,10 +315,10 @@ def enviar_mensaje(conn, correo_electronico_usuario_envia, correo_electronico_us
         conn.commit()
         cur.close()
         
-        print("Mensaje enviado correctamente.")
+        respuesta_mariadb("Mensaje enviado correctamente", accion="enviar mensaje")
         
     except mariadb.Error as e:
-        print(f"Error al enviar el mensaje: {e}")
+        respuesta_mariadb(error=e, accion='enviar mensajes')
 
 
 def obtener_estados_contactos(conn, correo_electronico):
@@ -333,27 +355,17 @@ def obtener_estados_contactos(conn, correo_electronico):
             resultados_formateados.append(resultado_dict)
         
         cur.close()
+        respuesta_mariadb("estados obtenidos correctamente", accion="obtener estados contactos")
         return resultados_formateados
     
     except mariadb.Error as e:
-        print(Fore.LIGHTRED_EX + f"[Error al obtener estados de los contactos: {e}]")
+        respuesta_mariadb(error=e, accion="obtener estados contactos")
         return None
 
 
 def obtener_chat_usuarios(conn, correo_electronico_usuario1, correo_electronico_usuario2):
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico_usuario1,))
-        id_usuario1 = cur.fetchone()
-        if id_usuario1 is None:
-            print("El primer correo electrónico no corresponde a un usuario registrado.")
-            return
-        
-        cur.execute("SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s", (correo_electronico_usuario2,))
-        id_usuario2 = cur.fetchone()
-        if id_usuario2 is None:
-            print("El segundo correo electrónico no corresponde a un usuario registrado.")
-            return
         
         cur.execute("""
             SELECT m.texto_mensaje, m.fecha_hora, u1.correo_electronico as 'envia', u2.correo_electronico as 'recibe', m.id_mensaje
@@ -368,7 +380,8 @@ def obtener_chat_usuarios(conn, correo_electronico_usuario1, correo_electronico_
         mensajes = cur.fetchall()
 
         cur.close()
+        respuesta_mariadb("chat de los usuarios obtenido correctamente", accion="obtener chat usuarios")
         return mensajes
         
     except Exception as e:
-        print(f"Error al obtener el chat entre los usuarios: {e}")
+        respuesta_mariadb(error=e, accion="obtener chat usuarios")
