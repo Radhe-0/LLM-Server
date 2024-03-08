@@ -5,6 +5,7 @@ from termcolor import colored
 from colorama import init, Fore, Back, Style
 import passlib.hash
 import base64
+import os
 
 
 def respuesta_mariadb(mensaje='', error='', accion=''):
@@ -150,12 +151,15 @@ def obtener_fotos_contactos(conn, correo_electronico):
         cur.close()
         respuesta_mariadb("Fotos contactos obtenidas", accion="obtener fotos contactos")
         
-        # Codificar las fotos de perfil en base64
+        with open("ppic.png", "rb") as image_file:
+            default_image_base64 = base64.b64encode(image_file.read()).decode("utf-8")
+        
         fotos_contactos = []
         for contacto in resultados:
-            correo, foto = contacto
-            foto_base64 = base64.b64encode(foto).decode('utf-8') if foto else None
-            fotos_contactos.append((correo, foto_base64))
+            correo_electronico_contacto, foto_perfil = contacto
+            if foto_perfil is None:
+                foto_perfil = default_image_base64
+                fotos_contactos.append((correo_electronico_contacto, foto_perfil))
         
         return fotos_contactos
 
@@ -268,8 +272,13 @@ def obtener_foto_usuario(conn, correo_electronico):
         resultado = cur.fetchone()
         cur.close()
         respuesta_mariadb("Foto de usuario obtenida", accion="obtener foto usuario")
-        return resultado[0]
-
+        
+        if resultado[0] is None:
+            with open("ppic.png", "rb") as image_file:
+                default_image_base64 = base64.b64encode(image_file.read()).decode("utf-8")
+            return default_image_base64
+        else:
+            return resultado[0]
 
     except mariadb.Error as e:
         respuesta_mariadb(error=e, accion="obtener foto usuario")
