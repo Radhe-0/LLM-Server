@@ -2,6 +2,7 @@ websockets
 uuid
 termcolor
 colorama
+pillow
 mariadb
 passlib
 flask

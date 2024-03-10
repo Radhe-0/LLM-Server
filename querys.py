@@ -6,6 +6,8 @@ from colorama import init, Fore, Back, Style
 import passlib.hash
 import base64
 import os
+from io import BytesIO
+from PIL import Image
 
 
 def respuesta_mariadb(mensaje='', error='', accion=''):
@@ -123,50 +125,30 @@ def obtener_contactos_usuario(conn, correo_electronico):
         cur = conn.cursor()
         cur.execute("USE LinuxLiveMessenger")
         cur.execute("""
-            SELECT U.correo_electronico, U.nickname, C.fecha_agregado
+            SELECT U.correo_electronico, U.nickname, U.foto_perfil
             FROM Contactos C
             INNER JOIN Usuarios U ON U.correo_electronico = C.correo_electronico_contacto
             WHERE C.id_usuario = (SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s);
         """, (correo_electronico,))
         resultados = cur.fetchall()
         cur.close()
-        return resultados
-    
-    except mariadb.Error as e:
-        respuesta_mariadb(error=e, accion="obtener contactos usuario")
-        return None
-
-
-def obtener_fotos_contactos(conn, correo_electronico):
-    try:
-        cur = conn.cursor()
-        cur.execute("USE LinuxLiveMessenger")
-        cur.execute("""
-            SELECT U.correo_electronico, U.foto_perfil
-            FROM Contactos C
-            INNER JOIN Usuarios U ON U.correo_electronico = C.correo_electronico_contacto
-            WHERE C.id_usuario = (SELECT id_usuario FROM Usuarios WHERE correo_electronico = %s);
-        """, (correo_electronico,))
-        resultados = cur.fetchall()
-        cur.close()
-        respuesta_mariadb("Fotos contactos obtenidas", accion="obtener fotos contactos")
         
         with open("ppic.png", "rb") as image_file:
             default_image_base64 = base64.b64encode(image_file.read()).decode("utf-8")
         
-        fotos_contactos = []
+        contactos = []
         for contacto in resultados:
-            correo_electronico_contacto, foto_perfil = contacto
+            correo_electronico_contacto, nickname, foto_perfil = contacto
             if foto_perfil is None:
                 foto_perfil = default_image_base64
-                fotos_contactos.append((correo_electronico_contacto, foto_perfil))
+            contactos.append((correo_electronico_contacto, nickname, foto_perfil))
         
-        return fotos_contactos
+        respuesta_mariadb("Contactos obtenidos", accion="obtener contactos usuario")
+        return contactos
 
     except mariadb.Error as e:
-        respuesta_mariadb(error=e, accion="obtener fotos contactos")
+        respuesta_mariadb(error=e, accion="obtener contactos usuario")
         return None
-
 
 def obtener_lema_usuario(conn, correo_electronico):
     try:
@@ -240,7 +222,32 @@ def agregar_estado(conn, correo_electronico, texto_estado):
         return False
 
 
+
+def recortar_foto(imagen_base64):
+    imagen_bytes = base64.b64decode(imagen_base64)
+    imagen = Image.open(BytesIO(imagen_bytes))
+    ancho, alto = imagen.size
+    tamano_recorte = min(ancho, alto)
+    left = (ancho - tamano_recorte) // 2
+    top = (alto - tamano_recorte) // 2
+    right = left + tamano_recorte
+    bottom = top + tamano_recorte
+    imagen_recortada = imagen.crop((left, top, right, bottom))
+
+    if tamano_recorte > 300:
+        imagen_recortada = imagen_recortada.resize((300, 300), Image.LANCZOS)
+
+    buffer = BytesIO()
+    imagen_recortada.save(buffer, format='PNG')
+    imagen_recortada_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+    return imagen_recortada_base64
+
+
 def actualizar_foto(conn, correo_electronico, imagenb64):
+
+    imagenb64_adaptada = recortar_foto(imagenb64)
+
     try:
         cur = conn.cursor()
         cur.execute("USE LinuxLiveMessenger")
@@ -249,7 +256,7 @@ def actualizar_foto(conn, correo_electronico, imagenb64):
             UPDATE Usuarios
             SET foto_perfil = %s
             WHERE correo_electronico = %s;
-        """, (imagenb64, correo_electronico))
+        """, (imagenb64_adaptada, correo_electronico))
         conn.commit()
         cur.close()
         respuesta_mariadb("Foto actualizada exitosamente", accion="actualizar foto")
@@ -260,7 +267,7 @@ def actualizar_foto(conn, correo_electronico, imagenb64):
         return False
 
 
-def obtener_foto_usuario(conn, correo_electronico):
+def obtener_foto_usuario(conn, correo_electronico): # deprecated
     try:
         cur = conn.cursor()
         cur.execute("USE LinuxLiveMessenger")

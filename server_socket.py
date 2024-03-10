@@ -13,39 +13,7 @@ import os
 
 PORT = 8765 # puerto del websocket
 HOST = "localhost"
-
-
-
-async def obtener_contactos(websocket, email):
-    conn = querys.conectar_mariadb()
-    query_data = querys.obtener_contactos_usuario(conn, email)
-    contactos = []  # lista de (email, nick)
-
-    for contacto in query_data:
-        contactos.append((contacto[0], contacto[1]))
-
-    try:
-        mensaje = {'tipo': 'obtener_contactos', 'data': contactos}
-        await websocket.send(json.dumps(mensaje))
-        await texto_respuesta(mensaje)
-    except websockets.exceptions.ConnectionClosedOK:
-        print("La conexión se cerró antes de enviar el mensaje.")
-
-
-async def obtener_fotos_contactos(websocket, email):
-    conn = querys.conectar_mariadb()
-    query_data = querys.obtener_fotos_contactos(conn, email)
-    fotos_contactos = {}
-
-    for contacto in query_data:
-        fotos_contactos[contacto[0]] = contacto[1] 
-
-    try:
-        mensaje = {'tipo': 'obtener_contactos', 'data': fotos_contactos}
-        await websocket.send(json.dumps(mensaje))
-        await texto_respuesta({"tipo": 'obtener_fotos', 'data': "esta data es muy extensa como para imprimirse XD"})
-    except websockets.exceptions.ConnectionClosedOK:
-        print("La conexión se cerró antes de enviar el mensaje.")
+conexiones_activas = {} # email: websocket
 
 
 async def obtener_nickname_usuario(websocket, email):
@@ -82,35 +50,6 @@ async def actualizar_foto(websocket, email, imagenb64):
         await texto_respuesta(mensaje)
     except websockets.exceptions.ConnectionClosedOK:
         print("La conexión se cerró antes de enviar el mensaje.")
-
-
-async def obtener_fotos_contactos(websocket, email):
-    conn = querys.conectar_mariadb()
-    fotos_data = querys.obtener_fotos_contactos(conn, email)
-    fotos_dict = {}
-
-    for contacto in fotos_data:
-        fotos_dict[contacto[0]] =  contacto[1]
-
-    try:
-        mensaje = {'tipo': 'obtener_fotos', 'data': {"imagenb64": fotos_dict}}
-        await websocket.send(json.dumps(mensaje))
-        await texto_respuesta(mensaje)
-    except websockets.exceptions.ConnectionClosedOK:
-        print("La conexión se cerró antes de enviar el mensaje.")
-
-
-async def obtener_foto_usuario(websocket, email):
-    conn = querys.conectar_mariadb()
-    imagenb64= querys.obtener_foto_usuario(conn, email)
-
-    try:
-        mensaje = {'tipo': 'obtener_foto', 'data': {"imagenb64": imagenb64}}
-        await websocket.send(json.dumps(mensaje))
-        await texto_respuesta(mensaje)
-    except websockets.exceptions.ConnectionClosedOK:
-        print("La conexión se cerró antes de enviar el mensaje.")
-
 
 
 async def actualizar_nickname_usuario(websocket, email, nuevo_nickname):
@@ -152,23 +91,15 @@ async def handler(websocket):
         solicitud = eval(mensaje) # str a dict
         await texto_solicitud(solicitud)
 
-        if solicitud['accion'] == 'obtener_contactos':
-            await obtener_contactos(websocket, solicitud['data']['email'])
-
-        elif solicitud['accion'] == 'obtener_nickname':
+        
+        if solicitud['accion'] == 'obtener_nickname':
             await obtener_nickname_usuario(websocket, solicitud['data']['email'])
-
-        elif solicitud['accion'] == 'obtener_foto':
-            await obtener_foto_usuario(websocket, solicitud['data']['email'])
 
         elif solicitud['accion'] == 'obtener_estados':
             await obtener_estados_contactos(websocket, solicitud['data']['email'])
 
         elif solicitud['accion'] == 'actualizar_foto':
             await actualizar_foto(websocket, solicitud['data']['email'], solicitud['data']['imagenb64']) 
-
-        elif solicitud['accion'] == 'obtener_fotos':
-            await obtener_fotos_contactos(websocket, solicitud['data']['email'])
 
         elif solicitud['accion'] == 'agregar_contacto':
             await agregar_contacto(websocket, solicitud['data']['email'], solicitud['data']['email_contacto'])
@@ -187,10 +118,10 @@ async def texto_solicitud(solicitud):
         pprint(solicitud)
 
 async def texto_respuesta(respuesta):
-    if 'imagenb64' in respuesta['data']:
+    if 'imagenb64' in respuesta['data'] or 'obtener_contactos' == respuesta['tipo']:
         print("-"*64)
         print(Fore.LIGHTGREEN_EX + Style.BRIGHT+ "[Respuesta enviada]:\t" + Fore.LIGHTMAGENTA_EX + respuesta["tipo"] + Fore.RESET + Style.RESET_ALL)
-        pprint('imagenb64 enviada')
+        pprint('imagenesb64 enviadas')
     else:
         print("-"*64)
         print(Fore.LIGHTGREEN_EX + Style.BRIGHT+ "[Respuesta enviada]:\t" + Fore.LIGHTMAGENTA_EX + respuesta["tipo"] + Fore.RESET + Style.RESET_ALL)
@@ -212,7 +143,7 @@ def generar_id():
 
 
 async def main():
-    async with serve(handler, HOST, PORT,max_size=10485760):
+    async with serve(handler, HOST, PORT,max_size=None):
 
         print(Fore.CYAN + Style.BRIGHT + "╔══════════════════════════════════════════════════════════╗")
         print(Fore.CYAN + "║\t\t     " + Fore.LIGHTRED_EX +  "[Servidor iniciado]" + Fore.CYAN + "\t\t   ║")
